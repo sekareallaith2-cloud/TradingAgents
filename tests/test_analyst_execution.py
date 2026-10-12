@@ -16,7 +16,7 @@ class AnalystExecutionPlanTests(unittest.TestCase):
 
     def test_rejects_unknown_analyst_keys(self):
         with self.assertRaises(ValueError):
-            build_analyst_execution_plan(["market", "macro"])
+            build_analyst_execution_plan(["market", "astrology"])
 
     def test_social_key_displays_as_sentiment_analyst(self):
         # The wire key stays "social" for saved-config back-compat, but the

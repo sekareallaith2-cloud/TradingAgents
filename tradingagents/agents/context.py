@@ -124,7 +124,8 @@ def build_instrument_context(
     on the analysis date.
     """
     is_crypto = asset_type == "crypto"
-    instrument_label = "asset" if is_crypto else "instrument"
+    is_metal = asset_type == "metal"
+    instrument_label = "asset" if is_crypto or is_metal else "instrument"
     context = (
         f"The {instrument_label} to analyze is `{ticker}`. "
         "The tools serve this instrument; refer to it by this exact ticker in every report and recommendation, "
@@ -133,7 +134,7 @@ def build_instrument_context(
 
     identity = identity or {}
     name = identity.get("company_name") or identity.get("name")
-    label = "Name" if is_crypto else "Company"
+    label = "Name" if is_crypto or is_metal else "Company"
     details = []
     if is_historical(trade_date):
         if name:
@@ -166,6 +167,12 @@ def build_instrument_context(
             " Treat it as a crypto asset rather than a company, and do not "
             "assume company fundamentals are available."
         )
+    if is_metal:
+        context += (
+            " Treat it as a precious-metal futures contract rather than a company: it has no earnings, balance "
+            "sheet or company fundamentals. Its price is driven by real yields, the dollar, inflation "
+            "expectations and risk sentiment."
+        )
     return context
 
 
@@ -185,6 +192,16 @@ def get_instrument_context_from_state(state: Mapping[str, Any]) -> str:
         str(state["company_of_interest"]),
         state.get("asset_type", "stock"),
     )
+
+
+def macro_report_section(state: Mapping[str, Any], label: str) -> str:
+    """The macro analyst's report as one more labelled line of a prompt, or nothing when the run has none.
+
+    Only precious-metal runs carry a macro report. Returning an empty string for the others leaves every
+    stock and crypto prompt exactly as it was.
+    """
+    text = str(state.get("macro_report") or "").strip()
+    return f"\n{label}: {text}" if text else ""
 
 
 def report_or_absent(text: str, source: str) -> str:

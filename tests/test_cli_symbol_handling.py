@@ -50,7 +50,9 @@ def test_ticker_input_validation(value, ok):
     ("BTC-USD", AssetType.CRYPTO),
     ("ETHUSD", AssetType.CRYPTO),
     ("AAPL", AssetType.STOCK),
-    ("GC=F", AssetType.STOCK),
+    ("GC=F", AssetType.METAL),
+    ("XAUUSD", AssetType.METAL),
+    ("GLD", AssetType.STOCK),
     ("600519.SS", AssetType.STOCK),
 ])
 def test_detect_asset_type(raw, expected):

@@ -235,7 +235,8 @@ def get_macro_indicators(
         str,
         "Macro indicator: a friendly alias such as 'cpi', 'core_pce', "
         "'unemployment', 'fed_funds_rate', '10y_treasury', 'yield_curve', "
-        "'real_gdp', 'vix', euro-area aliases such as 'ecb_deposit_rate', "
+        "'real_gdp', 'vix', 'real_yield_10y', 'breakeven_10y', 'dollar_index', "
+        "'fed_funds_daily', euro-area aliases such as 'ecb_deposit_rate', "
         "'euro_hicp', 'euro_core_hicp', 'euro_real_gdp', 'germany_10y', "
         "'france_10y', 'eur_usd', or a raw FRED series ID such as 'CPIAUCSL'.",
     ],
@@ -262,6 +263,28 @@ def get_macro_indicators(
         str: A formatted markdown report of the macro series
     """
     return route_to_vendor("get_macro_indicators", indicator, as_of(curr_date, trade_date), look_back_days)
+
+
+@tool
+def get_gold_macro_snapshot(
+    curr_date: Annotated[str, "Current date in yyyy-mm-dd format"],
+    trade_date: Annotated[str, InjectedState("trade_date")] = "",
+) -> str:
+    """
+    Retrieve gold's macro drivers in one table, computed from FRED: the 10-year
+    real yield, the broad dollar index, 10-year breakeven inflation, the VIX and
+    the nominal yields and policy rate around them. Each row gives the latest
+    value and its date, the 7, 30 and 90 day changes, and the textbook effect of
+    the 30 day move on gold (headwind, tailwind or neutral), with a scorecard
+    at the end. Uses the configured macro_data vendor.
+
+    Args:
+        curr_date (str): Current date in yyyy-mm-dd format
+
+    Returns:
+        str: A formatted markdown table of gold's macro drivers
+    """
+    return route_to_vendor("get_gold_macro_snapshot", as_of(curr_date, trade_date))
 
 
 @tool

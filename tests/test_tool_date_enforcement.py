@@ -58,6 +58,7 @@ DATED_TOOLS = [
     tools.get_global_news,
     tools.get_indicators,
     tools.get_macro_indicators,
+    tools.get_gold_macro_snapshot,
     tools.get_verified_market_snapshot,
 ]
 

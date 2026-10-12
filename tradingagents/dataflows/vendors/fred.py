@@ -57,6 +57,13 @@ MACRO_SERIES = {
     "pce": "PCEPI",
     "core_pce": "PCEPILFE",
     "inflation_expectations": "T10YIE",
+    # Real yields and market-implied inflation: what gold actually trades against
+    "real_yield_10y": "DFII10",
+    "real_yield_5y": "DFII5",
+    "real_yield": "DFII10",
+    "breakeven_10y": "T10YIE",
+    "breakeven_5y": "T5YIE",
+    "fed_funds_daily": "DFF",
     # Growth & output
     "real_gdp": "GDPC1",
     "gdp": "GDP",
@@ -284,3 +291,103 @@ def get_macro_data(
     )
 
     return header + summary + note + table
+
+
+# Gold's macro drivers: (label, FRED series, unit kind, textbook sign, flat threshold). ``kind`` is "rate"
+# for series in percent (changes are in percentage points) or "index" (changes are in percent). ``sign`` is
+# the textbook effect of a RISE on gold: -1 headwind, +1 tailwind, 0 context only. A 30-day move smaller than
+# the flat threshold is noise, not a headwind or a tailwind. Real yields and the dollar are the two drivers
+# the literature ties gold to most reliably; the rest are context for them.
+GOLD_DRIVERS = (
+    ("10y real yield (TIPS)", "DFII10", "rate", -1, 0.05),
+    ("Broad dollar index", "DTWEXBGS", "index", -1, 0.5),
+    ("10y breakeven inflation", "T10YIE", "rate", +1, 0.05),
+    ("VIX", "VIXCLS", "index", +1, 5.0),
+    ("10y nominal yield", "DGS10", "rate", 0, 0.05),
+    ("2y nominal yield", "DGS2", "rate", 0, 0.05),
+    ("Effective fed funds rate", "DFF", "rate", 0, 0.05),
+)
+GOLD_WINDOWS = (7, 30, 90)  # calendar days
+GOLD_FETCH_DAYS = 130  # enough history for the longest window, plus slack for gaps and holidays
+
+
+def _change(points: list[tuple[str, float]], days: int, kind: str) -> float | None:
+    """Change of the latest value over the last ``days`` calendar days, or None without a start value.
+
+    Rates change in percentage points, indexes in percent. The start value is the last observation on
+    or before the window's start, so a series that reports less often still gets a fair baseline.
+    """
+    last_date, last = points[-1]
+    cutoff = (datetime.strptime(last_date, "%Y-%m-%d") - timedelta(days=days)).strftime("%Y-%m-%d")
+    base = next((v for d, v in reversed(points) if d <= cutoff), None)
+    if base is None:
+        return None
+    if kind == "rate":
+        return last - base
+    return (last / base - 1) * 100 if base else None
+
+
+def _effect(sign: int, change: float | None, flat: float) -> str:
+    """Textbook effect on gold of a move: headwind, tailwind, neutral, or '-' for context-only rows."""
+    if sign == 0:
+        return "-"
+    if change is None:
+        return "n/a"
+    if abs(change) < flat:
+        return "neutral"
+    return "tailwind" if change * sign > 0 else "headwind"
+
+
+def get_gold_drivers(as_of_date: str) -> str:
+    """Gold's macro drivers as of ``as_of_date``: levels, changes and the textbook effect of each move.
+
+    Every number is computed here from FRED, at the data vintage published by ``as_of_date`` (the same
+    point-in-time pin as ``get_macro_data``), so the analyst reads the figures instead of recalling them.
+    The "effect" column is the textbook sign of the move, a mechanical reading and not a forecast.
+    """
+    get_api_key()  # no key: fail as a whole (the router degrades it), not as seven rows of "unavailable"
+    end_dt = datetime.strptime(as_of_date, "%Y-%m-%d")
+    start = (end_dt - timedelta(days=GOLD_FETCH_DAYS)).strftime("%Y-%m-%d")
+    pit = min(as_of_date, _fred_today())
+    realtime = {"realtime_start": pit, "realtime_end": pit}
+
+    rows, scored = [], {"headwind": [], "tailwind": []}
+    for label, series_id, kind, sign, flat in GOLD_DRIVERS:
+        try:
+            observations = _request(
+                "series/observations",
+                {"series_id": series_id, "observation_start": start, "observation_end": as_of_date,
+                 "sort_order": "asc", **realtime},
+            ).get("observations", [])
+        except ValueError as exc:  # one bad series must not sink the table
+            rows.append(f"| {label} ({series_id}) | unavailable: {exc} | | | | |")
+            continue
+        points = [(o["date"], float(o["value"])) for o in observations
+                  if o.get("value") not in (".", None, "")]
+        if not points:
+            rows.append(f"| {label} ({series_id}) | no data published by {pit} | | | | |")
+            continue
+
+        unit = "pp" if kind == "rate" else "%"
+        changes = [_change(points, days, kind) for days in GOLD_WINDOWS]
+        shown = [("n/a" if c is None else f"{c:+.2f}{unit}") for c in changes]
+        mid = changes[GOLD_WINDOWS.index(30)]
+        effect = _effect(sign, mid, flat)
+        if effect in scored:
+            scored[effect].append(label)
+        last_date, last = points[-1]
+        value = f"{last:.2f}{'%' if kind == 'rate' else ''}"
+        rows.append(f"| {label} ({series_id}) | {value} ({last_date}) | " + " | ".join(shown) + f" | {effect} |")
+
+    head = ", ".join(scored["headwind"]) or "none"
+    tail = ", ".join(scored["tailwind"]) or "none"
+    return (
+        f"## Gold macro drivers as of {as_of_date} (FRED, data vintage {pit})\n\n"
+        "Changes are in percentage points (pp) for rates and in percent for indexes. 'Effect' is the textbook "
+        "sign of the 30-day move on gold (a rise in real yields or the dollar is a headwind; a rise in breakeven "
+        "inflation or the VIX a tailwind), a mechanical reading and not a forecast. Series publish with different "
+        "lags: check each date.\n\n"
+        "| Driver | Latest | 7d | 30d | 90d | Effect (30d) |\n| --- | --- | --- | --- | --- | --- |\n"
+        + "\n".join(rows)
+        + f"\n\n**Scorecard (30d):** headwinds: {head}. tailwinds: {tail}.\n"
+    )

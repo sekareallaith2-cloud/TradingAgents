@@ -8,8 +8,11 @@ class AnalystType(StrEnum):
     SOCIAL = "social"
     NEWS = "news"
     FUNDAMENTALS = "fundamentals"
+    # Precious metals only: real yields, the dollar and inflation expectations.
+    MACRO = "macro"
 
 
 class AssetType(StrEnum):
     STOCK = "stock"
     CRYPTO = "crypto"
+    METAL = "metal"

@@ -9,6 +9,7 @@ from dotenv import find_dotenv, set_key
 
 from cli.display import console
 from cli.models import AnalystType, AssetType
+from tradingagents.dataflows.symbols import PRECIOUS_METAL_SYMBOLS
 from tradingagents.llm_clients.api_key_env import get_api_key_env
 from tradingagents.llm_clients.model_catalog import get_model_options
 
@@ -19,6 +20,7 @@ ANALYST_CHOICES = [
     ("Sentiment Analyst", AnalystType.SOCIAL),
     ("News Analyst", AnalystType.NEWS),
     ("Fundamentals Analyst", AnalystType.FUNDAMENTALS),
+    ("Macro Analyst", AnalystType.MACRO),
 ]
 
 CRYPTO_SUFFIXES = ("-USD", "-USDT", "-USDC", "-BTC", "-ETH")
@@ -121,19 +123,23 @@ def detect_asset_type(ticker: str) -> AssetType:
     canonical = normalize_ticker_symbol(ticker)
     if canonical.endswith(CRYPTO_SUFFIXES):
         return AssetType.CRYPTO
+    if canonical in PRECIOUS_METAL_SYMBOLS:
+        return AssetType.METAL
     return AssetType.STOCK
 
 
 def filter_analysts_for_asset_type(
     analysts: list[AnalystType], asset_type: AssetType
 ) -> list[AnalystType]:
-    if asset_type != AssetType.CRYPTO:
-        return analysts
-    return [
-        analyst
-        for analyst in analysts
-        if analyst != AnalystType.FUNDAMENTALS
-    ]
+    """The analysts that make sense for the asset: a crypto asset or a metal has no company fundamentals,
+    and the macro analyst is written for precious metals only."""
+    if asset_type == AssetType.METAL:
+        unavailable = {AnalystType.FUNDAMENTALS}
+    elif asset_type == AssetType.CRYPTO:
+        unavailable = {AnalystType.FUNDAMENTALS, AnalystType.MACRO}
+    else:
+        unavailable = {AnalystType.MACRO}
+    return [analyst for analyst in analysts if analyst not in unavailable]
 
 
 def _matching_choice(options, default):

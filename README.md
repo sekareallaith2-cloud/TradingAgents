@@ -224,6 +224,7 @@ TradingAgents works with any market Yahoo Finance covers, using the exchange-suf
 - India: `RELIANCE.NS`, `.BO` · Canada: `.TO` · Australia: `.AX`
 - China A-shares: Shanghai `.SS`, Shenzhen `.SZ` (e.g. `600519.SS` for Kweichow Moutai)
 - Crypto: `BTC-USD`, `ETH-USD`
+- Precious metals: `XAUUSD` / `GC=F` (gold), `XAGUSD` / `SI=F` (silver), `PL=F`, `PA=F`. A metal has no company behind it, so the run drops the Fundamentals Analyst and adds a Macro Analyst that reads gold's FRED drivers (10-year real yield, broad dollar index, breakeven inflation, VIX) from one table computed at the analysis date's data vintage. It needs `FRED_API_KEY`; without it the macro report says the data is unavailable. Central-bank buying, ETF flows and futures positioning are not available to it and are reported as unobserved.
 
 <p align="center">
   <img src="assets/cli/cli_init.png" width="100%" style="display: inline-block; margin: 0 2%;">

@@ -67,6 +67,10 @@ _ALIASES = {
     "FRA40": "^FCHI", "EU50": "^STOXX50E", "HK50": "^HSI",
 }
 
+# Canonical Yahoo symbols of the precious-metal futures. They have no company behind them, so the pipeline
+# treats them as their own asset type ("metal"): no fundamentals analyst, and a macro analyst instead.
+PRECIOUS_METAL_SYMBOLS = frozenset({"GC=F", "MGC=F", "SI=F", "SIL=F", "PL=F", "PA=F"})
+
 # HKEX codes as Yahoo spells them: the number zero-padded to 4 digits (#957).
 _HK_CODE = re.compile(r"^(\d{1,5})\.HK$")
 _SHANGHAI_SH = re.compile(r"^(\d{6})\.SH$")
